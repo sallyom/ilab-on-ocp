@@ -7,7 +7,11 @@ from kfp.dsl import Artifact, Input, Model, Output, component, importer
 from utils.consts import PYTHON_IMAGE
 
 # TODO: replace with ilab image
+<<<<<<< HEAD
 EVAL_IMAGE = "quay.io/sallyom/instructlab-ocp:eval-7ee213"
+=======
+EVAL_IMAGE = "quay.io/sallyom/instructlab-ocp:eval-new"
+>>>>>>> 1015837 (update mtbench-evaluator)
 
 
 @component(base_image=EVAL_IMAGE, packages_to_install=["vllm"])
@@ -108,8 +112,12 @@ def run_mt_bench_op(
     import json
     import os
 
+<<<<<<< HEAD
     import torch
     from instructlab.eval import mt_bench_answers, mt_bench_judgment
+=======
+    from instructlab.eval.mt_bench import MTBenchEvaluator
+>>>>>>> 1015837 (update mtbench-evaluator)
 
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
     vllm_server = "http://localhost:8000/v1"
@@ -148,7 +156,11 @@ def run_mt_bench_op(
         print(f"Serving candidate model: {model_name}")
         model_path = f"{models_path_prefix}/{model_name}"
 
+<<<<<<< HEAD
         launch_vllm(model_path, gpu_count)
+=======
+        launch_vllm_server_background(model_path, gpu_count)
+>>>>>>> 1015837 (update mtbench-evaluator)
 
         # model ID is the model_path value in vLLM
         evaluator = MTBenchEvaluator(
