@@ -1,25 +1,16 @@
 # type: ignore
 # pylint: disable=no-value-for-parameter,import-outside-toplevel,import-error
 from typing import List, NamedTuple, Optional
-<<<<<<< HEAD
 
 from kfp.dsl import Artifact, Input, Model, Output, component, importer
 
 from utils.consts import PYTHON_IMAGE
 
 # TODO: replace with ilab image
-<<<<<<< HEAD
 EVAL_IMAGE = "quay.io/sallyom/instructlab-ocp:eval-7ee213"
-=======
-EVAL_IMAGE = "quay.io/sallyom/instructlab-ocp:eval-new"
->>>>>>> 1015837 (update mtbench-evaluator)
-=======
-from kfp.dsl import component, Input, Output, Artifact, Model, importer
-from utils.consts import PYTHON_IMAGE, ILAB_IMAGE
->>>>>>> 8b21133 (use ilab image in mtbench)
 
 
-@component(base_image=ILAB_IMAGE)
+@component(base_image=EVAL_IMAGE, packages_to_install=["vllm"])
 def run_mt_bench_op(
     models_path_prefix: str,
     mt_bench_output: Output[Artifact],
@@ -32,21 +23,12 @@ def run_mt_bench_op(
     models_folder: Optional[str] = None,
     device: str = None,
 ) -> NamedTuple("outputs", best_model=str, best_score=float):
-<<<<<<< HEAD
     def launch_vllm(model_path: str, gpu_count: int, retries: int = 60, delay: int = 5):
-=======
-    def launch_vllm(
-        model_path: str, gpu_count: int, retries: int = 60, delay: int = 5
-    ):
->>>>>>> 8b21133 (use ilab image in mtbench)
         import subprocess
         import sys
         import time
 
         import requests
-
-        # TODO: set centrally
-        vllm_endpoint = "http://localhost:8000/v1"
 
         if gpu_count > 0:
             command = [
@@ -69,13 +51,14 @@ def run_mt_bench_op(
 
         subprocess.Popen(args=command)
 
-        print(f"Waiting for vLLM server to start at {vllm_endpoint}...")
+        server_url = "http://localhost:8000/v1"
+        print(f"Waiting for vLLM server to start at {server_url}...")
 
         for attempt in range(retries):
             try:
-                response = requests.get(f"{vllm_endpoint}/models")
+                response = requests.get(f"{server_url}/models")
                 if response.status_code == 200:
-                    print(f"vLLM server is up and running at {vllm_endpoint}.")
+                    print(f"vLLM server is up and running at {server_url}.")
                     return
             except requests.ConnectionError:
                 pass
@@ -86,12 +69,12 @@ def run_mt_bench_op(
             time.sleep(delay)
 
         raise RuntimeError(
-            f"Failed to start vLLM server at {vllm_endpoint} after {retries} retries."
+            f"Failed to start vLLM server at {server_url} after {retries} retries."
         )
 
     # This seems like excessive effort to stop the vllm process, but merely saving & killing the pid doesn't work
     # Also, the base image does not include `pkill` cmd, so can't pkill -f vllm.entrypoints.openai.api_server either
-    def stop_vllm():
+    def stop_vllm_server_by_name():
         import psutil
 
         for process in psutil.process_iter(attrs=["pid", "name", "cmdline"]):
@@ -125,26 +108,11 @@ def run_mt_bench_op(
     import json
     import os
 
-<<<<<<< HEAD
     import torch
     from instructlab.eval import mt_bench_answers, mt_bench_judgment
-=======
-    from instructlab.eval.mt_bench import MTBenchEvaluator
->>>>>>> 1015837 (update mtbench-evaluator)
 
-    env_variables = {
-        "HOME": "/ilab",
-        "XDG_CACHE_HOME": "/ilab",
-        "XDG_CONFIG_HOME": "/ilab",
-        "XDG_DATA_HOME": "/ilab",
-        "TRITON_CACHE_DIR": "/ilab",
-        "HF_HOME": "/ilab",
-        "TRANSFORMERS_CACHE": "/ilab",
-        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"
-    }
-
-    for key, value in env_variables.items():
-        os.environ[key] = value
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    vllm_server = "http://localhost:8000/v1"
 
     gpu_available = torch.cuda.is_available()
     gpu_name = (
@@ -163,8 +131,6 @@ def run_mt_bench_op(
     judge_model_name = os.getenv("JUDGE_NAME")
     judge_endpoint = os.getenv("JUDGE_ENDPOINT")
 
-    vllm_endpoint = "http://localhost:8000/v1"
-
     scores = {}
     all_mt_bench_data = []
 
@@ -180,19 +146,9 @@ def run_mt_bench_op(
 
     for model_name in models_list:
         print(f"Serving candidate model: {model_name}")
-        #model_path = f"{models_path_prefix}/{model_name}"
-        # TODO: REMOVE THIS, UNCOMMENT ABOVE
-        model_path = f"{models_path_prefix}/samples_588"
+        model_path = f"{models_path_prefix}/{model_name}"
 
-<<<<<<< HEAD
-<<<<<<< HEAD
         launch_vllm(model_path, gpu_count)
-=======
-        launch_vllm_server_background(model_path, gpu_count)
->>>>>>> 1015837 (update mtbench-evaluator)
-=======
-        launch_vllm(model_path, gpu_count)
->>>>>>> 8b21133 (use ilab image in mtbench)
 
         # model ID is the model_path value in vLLM
         evaluator = MTBenchEvaluator(
@@ -203,12 +159,12 @@ def run_mt_bench_op(
         )
 
         evaluator.gen_answers(
-            server_url=vllm_endpoint,
+            server_url=vllm_server,
             serving_gpus=gpu_count,
             max_workers=max_workers,
         )
 
-        stop_vllm()
+        stop_vllm_server_by_name()
 
         overall_score, qa_pairs, turn_scores, error_rate = evaluator.judge_answers(
             server_url=judge_endpoint,

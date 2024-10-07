@@ -1,0 +1,23 @@
+kind: BuildConfig
+apiVersion: build.openshift.io/v1
+metadata:
+  name: ilab-custom-build
+  labels:
+    name: ilab-custom-build
+  annotations:
+    template.alpha.openshift.io/wait-for-ready: 'true'
+spec:
+  imagePullSecrets:
+    - name: ilab-image-pull-secret
+  strategy:
+    type: Custom
+    customStrategy:
+      forcePull: true
+      from:
+        kind: ImageStreamTag
+        name: ilab-builder-image:latest
+        namespace: ilab
+  output:
+    to:
+      kind: ImageStreamTag
+      name: ilab-kfp:latest

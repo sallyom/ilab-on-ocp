@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ilab-image-pod
+  namespace: ilab
+spec:
+  containers:
+  - name: ilab-container
+    image: registry.redhat.io/rhelai1/instructlab-nvidia-rhel9:1.1-1724960989 
+    imagePullPolicy: Always
+    command: ["python"]
+    args: ["--version"]
+  imagePullSecrets:
+  - name: ilab-image-pull-secret
+  restartPolicy: Never
