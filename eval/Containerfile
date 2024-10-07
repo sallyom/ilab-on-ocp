@@ -1,18 +1,12 @@
-FROM nvcr.io/nvidia/cuda:12.4.1-devel-ubi9
+FROM registry.redhat.io/rhelai1/instructlab-nvidia-rhel9:1.1-1724960989
 
-RUN dnf install -y python3.11 python3.11-devel git python3-pip make automake gcc gcc-c++ \
-    && dnf clean all \
-    && rm -rf /var/cache/*dnf*
-
-# TODO update to instructlab/eval after https://github.com/instructlab/eval/pull/128 or equivalent merges
-RUN python3.11 -m ensurepip \
-    && python3.11 -m pip install --no-cache-dir git+https://github.com/instructlab/eval@main \
-    && rm -rf /usr/bin/python3 && ln -s /usr/bin/python3.11 /usr/bin/python3
-
-ENV HF_HOME=/tmp
 ENV HOME=/tmp
+ENV XDG_CACHE_HOME=/tmp
+ENV XDG_CONFIG_HOME=/tmp
+ENV XDG_DATA_HOME=/tmp
+ENV TRITON_CACHE_DIR=/tmp
+ENV HF_HOME=/tmp
+ENV TRANSFORMERS_CACHE=/tmp
+ENV PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 
-# required for mt_bench
-ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/lib/python3.11/site-packages/nvidia/cudnn/lib"
-
-ENTRYPOINT ["python3.11"]
+ENTRYPOINT ["python"]

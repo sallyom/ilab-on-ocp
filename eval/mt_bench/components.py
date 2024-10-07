@@ -180,7 +180,9 @@ def run_mt_bench_op(
 
     for model_name in models_list:
         print(f"Serving candidate model: {model_name}")
-        model_path = f"{models_path_prefix}/{model_name}"
+        #model_path = f"{models_path_prefix}/{model_name}"
+        # TODO: REMOVE THIS, UNCOMMENT ABOVE
+        model_path = f"{models_path_prefix}/samples_588"
 
 <<<<<<< HEAD
 <<<<<<< HEAD
