@@ -199,6 +199,34 @@ def run_final_eval_op(
 
     # MMLU_BRANCH
 
+    # This is very specific to `ilab generate`, necessary because the data generation and
+    # model evaluation are taking place in separate environments.
+    def update_test_lines_in_files(tasks_dir):
+        # Define the regex to match lines starting with any indentation, 'test:', and containing 'node_datasets_*'
+        regex = re.compile(r"(\s*test:\s*).*/(node_datasets_[^/]*)(.*)")
+
+        for root, dirs, files in os.walk(tasks_dir):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+
+                with open(file_path, "r") as file:
+                    lines = file.readlines()
+
+                updated_lines = []
+                changed = False
+
+                for line in lines:
+                    # Replace the matched line with the desired format, keeping 'test:' and leading whitespace intact
+                    new_line = re.sub(regex, rf"\1{tasks_dir}/\2\3", line)
+                    if new_line != line:
+                        changed = True  # Only rewrite the file if there's a change
+                    updated_lines.append(new_line)
+
+                if changed:
+                    with open(file_path, "w") as file:
+                        file.writelines(updated_lines)
+                    print(f"Updated: {file_path}")
+
     # find_node_dataset_directories to find sdg output node_datasets_*
     def find_node_dataset_directories(base_directory: str):
         import os
@@ -223,6 +251,11 @@ def run_final_eval_op(
     # generates a node_datasets_ directory for MMLU custom tasks data
     if node_dataset_dirs:
         tasks_dir = node_dataset_dirs[0]
+        # From `ilab sdg` the knowledge_*_task.yaml files have a line that references where the SDG took place.
+        # This needs to be updated to run elsewhere.
+        # The line is:
+        #    test: /path/to/where/sdg/occured/node_datasets_*
+        update_test_lines_in_files(tasks_dir)
 
         mmlu_branch_evaluators = [
             MMLUBranchEvaluator(
