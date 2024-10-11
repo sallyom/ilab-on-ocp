@@ -1017,28 +1017,28 @@ deploymentSpec:
           \ str,\n    candidate_branch: str,\n    max_workers: str,\n    device: str,\n\
           \    model_dtype: str,\n    few_shots: int,\n    batch_size: int,\n    merge_system_user_message:\
           \ bool,\n    candidate_model: str = None,\n):\n    import json\n    import\
-          \ os\n    import torch\n    from instructlab.eval.mmlu import MMLU_TASKS,\
+          \ os\n\n    import torch\n    from instructlab.eval.mmlu import MMLU_TASKS,\
           \ MMLUBranchEvaluator\n    from instructlab.eval.mt_bench import MTBenchBranchEvaluator\n\
           \    from instructlab.model.evaluate import qa_pairs_to_qna_to_avg_scores,\
           \ sort_score\n\n    VLLM_SERVER = \"http://localhost:8000/v1\"\n\n    def\
-          \ launch_vllm(model_path: str, gpu_count: int, retries: int = 60, delay:\
-          \ int = 5):\n        import subprocess\n        import sys\n        import\
-          \ time\n\n        import requests\n\n        if gpu_count > 0:\n       \
-          \     command = [\n                sys.executable,\n                \"-m\"\
-          ,\n                \"vllm.entrypoints.openai.api_server\",\n           \
-          \     \"--model\",\n                model_path,\n                \"--tensor-parallel-size\"\
-          ,\n                str(gpu_count),\n            ]\n        else:\n     \
-          \       command = [\n                sys.executable,\n                \"\
-          -m\",\n                \"vllm.entrypoints.openai.api_server\",\n       \
-          \         \"--model\",\n                model_path,\n            ]\n\n \
-          \       subprocess.Popen(args=command)\n\n        print(f\"Waiting for vLLM\
-          \ server to start at {VLLM_SERVER}...\")\n\n        for attempt in range(retries):\n\
-          \            try:\n                response = requests.get(f\"{VLLM_SERVER}/models\"\
-          )\n                if response.status_code == 200:\n                   \
-          \ print(f\"vLLM server is up and running at {VLLM_SERVER}.\")\n        \
-          \            return\n            except requests.ConnectionError:\n    \
-          \            pass\n\n            print(\n                f\"Server not available\
-          \ yet, retrying in {delay} seconds (Attempt {attempt + 1}/{retries})...\"\
+          \ launch_vllm(\n        model_path: str, gpu_count: int, retries: int =\
+          \ 120, delay: int = 10\n    ):\n        import subprocess\n        import\
+          \ sys\n        import time\n\n        import requests\n\n        if gpu_count\
+          \ > 0:\n            command = [\n                sys.executable,\n     \
+          \           \"-m\",\n                \"vllm.entrypoints.openai.api_server\"\
+          ,\n                \"--model\",\n                model_path,\n         \
+          \       \"--tensor-parallel-size\",\n                str(gpu_count),\n \
+          \           ]\n        else:\n            command = [\n                sys.executable,\n\
+          \                \"-m\",\n                \"vllm.entrypoints.openai.api_server\"\
+          ,\n                \"--model\",\n                model_path,\n         \
+          \   ]\n\n        subprocess.Popen(args=command)\n\n        print(f\"Waiting\
+          \ for vLLM server to start at {VLLM_SERVER}...\")\n\n        for attempt\
+          \ in range(retries):\n            try:\n                response = requests.get(f\"\
+          {VLLM_SERVER}/models\")\n                if response.status_code == 200:\n\
+          \                    print(f\"vLLM server is up and running at {VLLM_SERVER}.\"\
+          )\n                    return\n            except requests.ConnectionError:\n\
+          \                pass\n\n            print(\n                f\"Server not\
+          \ available yet, retrying in {delay} seconds (Attempt {attempt + 1}/{retries})...\"\
           \n            )\n            time.sleep(delay)\n\n        raise RuntimeError(\n\
           \            f\"Failed to start vLLM server at {VLLM_SERVER} after {retries}\
           \ retries.\"\n        )\n\n    # This seems like excessive effort to stop\
@@ -1073,10 +1073,10 @@ deploymentSpec:
           \ repository\n    def branch_eval_summary_to_json(\n        improvements:\
           \ list[tuple[str, float, float, float]],\n        regressions: list[tuple[str,\
           \ float, float, float]],\n        no_changes: list[tuple[str, float]],\n\
-          \        new=None,\n    ) -> str:\n        \"\"\"Generates a JSON object\
-          \ from the _branch benchmark evaluations\"\"\"\n\n        import json\n\n\
-          \        summary = {\"improvements\": [], \"regressions\": [], \"no_changes\"\
-          : [], \"new\": []}\n\n        if len(improvements) > 0:\n            improvements.sort(key=sort_score,\
+          \        new=None,\n    ) -> str:\n        # Generates a JSON object from\
+          \ the _branch benchmark evaluations\n\n        import json\n\n        summary\
+          \ = {\"improvements\": [], \"regressions\": [], \"no_changes\": [], \"new\"\
+          : []}\n\n        if len(improvements) > 0:\n            improvements.sort(key=sort_score,\
           \ reverse=True)\n            for improvement in improvements:\n        \
           \        task, delta, base_score, new_score = improvement\n            \
           \    summary[\"improvements\"].append(\n                    {\n        \

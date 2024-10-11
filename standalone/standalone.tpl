@@ -59,6 +59,7 @@ PYTORCH_NNODES = 2
 # MMLU_SCORES_PATH = "/output/mmlu-results.txt"
 MT_BENCH_OUTPUT_PATH = path.join(DATA_PVC_MOUNT_PATH, "mt-bench-results.txt")
 MT_BENCH_SCORES_PATH = path.join(DATA_PVC_MOUNT_PATH, "mt-bench-best.txt")
+MT_BENCH_BRANCH_SCORES_PATH = path.join(DATA_PVC_MOUNT_PATH, "mt-bench-branch-best.txt")
 SDG_OBJECT_STORE_SECRET_NAME = "sdg-object-store-credentials"
 KFP_MODEL_SERVER_CM = """
 # TODO: remove the following line and replace it with the actual ConfigMap/Secret
@@ -543,7 +544,7 @@ def show(
 @click.option(
     "--eval-type",
     help="Type of evaluation to run",
-    type=click.Choice(["mt-bench", "mt-bench-branch"]),
+    type=click.Choice(["mt-bench", "final-eval"]),
     hidden=True,
 )
 @click.option(
@@ -769,7 +770,7 @@ def run(
         ctx.obj["candidate_model"] = scores.get("best_model")
 
         # Final evaluation
-        ctx.obj["eval_type"] = "mt-bench-branch"
+        ctx.obj["eval_type"] = "final-eval"
         scores = ctx.invoke(evaluation)
         scores = json.loads(scores)
         logger.info("Best model: %s", scores.get("best_model"))
@@ -777,6 +778,8 @@ def run(
 
         # Push the best model to S3
         # TODO
+        logger.info("instructLab Training Finished!")
+        return 0
 
 
 def get_security_context() -> kubernetes.client.V1SecurityContext:
@@ -1191,11 +1194,11 @@ def create_eval_job(
     exec_run_mt_bench_op_args = """
 {{exec_run_mt_bench_op_args}}
 """
-    exec_run_mt_bench_branch_op_command = """
-{{exec_run_mt_bench_op_command}}
+    exec_run_final_eval_op_command = """
+{{exec_run_final_eval_op_command}}
 """
-    exec_run_mt_bench_branch_op_args = """
-{{exec_run_mt_bench_op_args}}
+    exec_run_final_eval_op_args = """
+{{exec_run_final_eval_op_args}}
 """
 
     if eval_type == "mt-bench":
@@ -1233,7 +1236,7 @@ def create_eval_job(
             security_context=get_security_context(),
             volume_mounts=get_vol_mount(),
         )
-    elif eval_type == "mt-bench-branch":
+    elif eval_type == "final-eval":
         init_containers = [
             kubernetes.client.V1Container(
                 name=f"run-eval-{eval_type}",
@@ -1241,8 +1244,8 @@ def create_eval_job(
                 command=["/bin/sh", "-ce"],
                 args=[
                     PYTHON_EXECUTOR.format(
-                        python_code=exec_run_mt_bench_branch_op_command,
-                        python_main=exec_run_mt_bench_branch_op_args.strip(),
+                        python_code=exec_run_final_eval_op_command,
+                        python_main=exec_run_final_eval_op_args.strip(),
                     ),
                 ],
                 volume_mounts=get_vol_mount(),

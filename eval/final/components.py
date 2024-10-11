@@ -32,6 +32,7 @@ def run_final_eval_op(
 ):
     import json
     import os
+
     import torch
     from instructlab.eval.mmlu import MMLU_TASKS, MMLUBranchEvaluator
     from instructlab.eval.mt_bench import MTBenchBranchEvaluator
@@ -39,7 +40,9 @@ def run_final_eval_op(
 
     VLLM_SERVER = "http://localhost:8000/v1"
 
-    def launch_vllm(model_path: str, gpu_count: int, retries: int = 60, delay: int = 5):
+    def launch_vllm(
+        model_path: str, gpu_count: int, retries: int = 120, delay: int = 10
+    ):
         import subprocess
         import sys
         import time
@@ -134,7 +137,7 @@ def run_final_eval_op(
         no_changes: list[tuple[str, float]],
         new=None,
     ) -> str:
-        """Generates a JSON object from the _branch benchmark evaluations"""
+        # Generates a JSON object from the _branch benchmark evaluations
 
         import json
 
