@@ -27,6 +27,7 @@ GENERATED_STANDALONE_FILE_NAME = "standalone.py"
 DEFAULT_REPO_URL = "https://github.com/instructlab/taxonomy.git"
 KFP_MODEL_SERVER_CM = "sdg/kfp-model-server.yaml"
 BASE_MODEL = "ibm-granite/granite-7b-base"
+BASE_MODEL_PVC = "starter-model"
 
 # eval args
 MMLU_TASKS_LIST = "mmlu_anatomy,mmlu_astronomy"
@@ -136,6 +137,7 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
         sdg_pipeline: str = SDG_PIPELINE,
         max_batch_len: int = MAX_BATCH_LEN,
         seed: int = SEED,
+        base_model_pvc: str = BASE_MODEL_PVC,
     ):
         # SDG stage
         sdg_input_pvc_task = CreatePVC(
@@ -203,31 +205,32 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
         # 'standard' !=  default StorageClass
         # https://github.com/kubeflow/pipelines/blob/1cded35cf5e93d8c8d32fefbddceb2eed8de9a0a/backend/src/v2/driver/driver.go#L1428-L1436
         # At least we made it a pipeline parameter
-        model_pvc_task = CreatePVC(
-            pvc_name_suffix="-model-cache",
-            access_modes=["ReadWriteMany"],
-            size="100Gi",
-            storage_class_name=storage_class_name,
-        )
-        model_to_pvc_task = huggingface_importer_op(repo_name=base_model)
-        model_to_pvc_task.set_caching_options(False)
-        mount_pvc(
-            task=model_to_pvc_task, pvc_name=model_pvc_task.output, mount_path="/model"
-        )
+        # model_pvc_task = CreatePVC(
+        #    pvc_name_suffix="-model-cache",
+        #    access_modes=["ReadWriteMany"],
+        #    size="100Gi",
+        #    storage_class_name=storage_class_name,
+        # )
+        # model_to_pvc_task = huggingface_importer_op(repo_name=base_model)
+        # model_to_pvc_task.set_caching_options(False)
+        # mount_pvc(
+        #    task=model_to_pvc_task, pvc_name=model_pvc_task.output, mount_path="/model"
+        # )
 
         # Data processing
         data_processing_task = data_processing_op()
         mount_pvc(
             task=data_processing_task,
-            pvc_name=model_pvc_task.output,
-            mount_path="/model",
+            # pvc_name=model_pvc_task.output,
+            pvc_name=base_model_pvc,
+            mount_path="/mnt/model",
         )
         mount_pvc(
             task=data_processing_task,
             pvc_name=sdg_input_pvc_task.output,
             mount_path="/data",
         )
-        data_processing_task.after(model_to_pvc_task, sdg_task)
+        data_processing_task.after(sdg_task)
         data_processing_task.set_caching_options(False)
 
         # Upload "skills_processed_data" and "knowledge_processed_data" artifacts to S3 without blocking the rest of the workflow
@@ -260,7 +263,7 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
         # Using pvc_create_task.output as PyTorchJob name since dsl.PIPELINE_* global variables do not template/work in KFP v2
         # https://github.com/kubeflow/pipelines/issues/10453
         pytorchjob_manifest_task = pytorchjob_manifest_op(
-            model_pvc_name=model_pvc_task.output,
+            model_pvc_name=base_model_pvc,
             input_pvc_name=sdg_input_pvc_task.output,
             name_suffix=sdg_input_pvc_task.output,
             output_pvc_name=output_pvc_task.output,
@@ -280,7 +283,7 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
         kubectl_apply_task = kubectl_apply_op(
             manifest=pytorchjob_manifest_task.outputs["manifest"]
         )
-        kubectl_apply_task.after(data_processing_task, model_to_pvc_task)
+        kubectl_apply_task.after(data_processing_task)
         kubectl_apply_task.set_caching_options(False)
 
         kubectl_wait_task = kubectl_wait_for_op(
@@ -337,7 +340,7 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
         #### Train 2
 
         pytorchjob_manifest_2_task = pytorchjob_manifest_op(
-            model_pvc_name=model_pvc_task.output,
+            model_pvc_name=base_model_pvc,
             input_pvc_name=sdg_input_pvc_task.output,
             name_suffix=sdg_input_pvc_task.output,
             output_pvc_name=output_pvc_task.output,
@@ -426,7 +429,7 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
             base_branch=repo_branch,
             candidate_branch=repo_branch,
             device=device,
-            base_model_dir="/model/",
+            base_model_dir="/mnt/model/",
             max_workers=max_workers,
             merge_system_user_message=merge_system_user_message,
             model_dtype=model_dtype,
@@ -443,8 +446,8 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
         )
         mount_pvc(
             task=final_eval_task,
-            pvc_name=model_pvc_task.output,
-            mount_path="/model",
+            pvc_name=base_model_pvc,
+            mount_path="/mnt/model",
         )
 
         use_config_map_as_env(
@@ -495,8 +498,8 @@ def pipeline_wrapper(mock: List[Literal[MOCKED_STAGES]]):
         sdg_pvc_delete_task = DeletePVC(pvc_name=sdg_input_pvc_task.output)
         sdg_pvc_delete_task.after(final_eval_task)
 
-        model_pvc_delete_task = DeletePVC(pvc_name=model_pvc_task.output)
-        model_pvc_delete_task.after(final_eval_task)
+        # model_pvc_delete_task = DeletePVC(pvc_name=model_pvc_task.output)
+        # model_pvc_delete_task.after(final_eval_task)
 
         return
 

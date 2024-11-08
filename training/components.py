@@ -15,7 +15,7 @@ from utils.consts import PYTHON_IMAGE, TOOLBOX_IMAGE
     ],
 )
 def data_processing_op(
-    model_path: str = "/model",
+    model_path: str = "/mnt/model",
     sdg_path: str = "/data/sdg",
     skills_path: str = "/data/skills",
     knowledge_path: str = "/data/knowledge",
